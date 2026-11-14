@@ -1,0 +1,14 @@
+[Unit]
+Description=WXEdge 魔方管理器 - 网心云容器多开 WebUI
+After=network-online.target docker.service
+Wants=network-online.target docker.service
+
+[Service]
+Type=simple
+Environment=WXEDGE_DATA_DIR=/var/lib/wxedge-manager
+ExecStart=/usr/bin/python3 /opt/wxedge-manager/app/main.py --data-dir /var/lib/wxedge-manager
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+# Docker 部署方式（可选）：管理器通过挂载 docker.sock 管理宿主机上的网心云容器。
+# 注意：/var/lib/wxedge-manager 必须以宿主机相同路径挂载，实例的 bind mount 才能生效。
+version: "2.4"
+services:
+  wxedge-manager:
+    build: .
+    image: wxedge-manager:latest
+    container_name: wxedge-manager
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+    environment:
+      - WXEDGE_DATA_DIR=/var/lib/wxedge-manager
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/wxedge-manager:/var/lib/wxedge-manager

@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+data/
+dev-data/
+data-run/
+gui-test-screenshots/
+*.log
+state.json
+sim-runtime.json
+dev-ui/
+dev-empty/
+.venv/
+*.tar.gz
