@@ -10,6 +10,8 @@ HOST="0.0.0.0"
 PORT="8080"
 SKIP_DOCKER=0
 SKIP_SERVICE=0
+CHECK_SPACE=0
+MIN_FREE_MB=2048
 
 usage() {
   cat <<'EOF'
@@ -22,6 +24,8 @@ WXEdge 魔方管理器 安装脚本（Ubuntu / Debian）
   --port PORT         监听端口（默认 8080）
   --skip-docker       跳过 Docker 安装（已有 Docker 或仅测试模拟模式时使用）
   --skip-service      不安装/启动 systemd 服务（用于 WSL 等无 systemd 环境）
+  --check-space       只检查安装目录、数据目录和 Docker 镜像目录的可用空间，不安装
+  --min-free-mb N     空间检查阈值（单位 MB，默认 2048）
   -h, --help          显示帮助
 EOF
 }
@@ -34,10 +38,79 @@ while [[ $# -gt 0 ]]; do
     --port) PORT="$2"; shift 2 ;;
     --skip-docker) SKIP_DOCKER=1; shift ;;
     --skip-service) SKIP_SERVICE=1; shift ;;
+    --check-space) CHECK_SPACE=1; shift ;;
+    --min-free-mb) MIN_FREE_MB="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "未知参数: $1"; usage; exit 1 ;;
   esac
 done
+
+if ! [[ "$MIN_FREE_MB" =~ ^[0-9]+$ ]] || [[ "$MIN_FREE_MB" -lt 1 ]]; then
+  echo "错误：--min-free-mb 需要是大于 0 的整数" >&2
+  exit 1
+fi
+
+human_kb() {
+  awk -v k="$1" 'BEGIN {
+    if (k >= 1048576) printf "%.1f GB", k / 1048576;
+    else if (k >= 1024) printf "%.0f MB", k / 1024;
+    else printf "%d KB", k;
+  }'
+}
+
+check_space() {
+  local min_kb=$((MIN_FREE_MB * 1024))
+  local fail=0 label target dir info avail total mount docker_root
+  echo "==> 存储空间检测（建议至少 ${MIN_FREE_MB} MB 可用）"
+  for entry in "安装目录:${PREFIX}" "数据目录:${DATA_DIR}"; do
+    label="${entry%%:*}"
+    target="${entry#*:}"
+    dir="$target"
+    while [[ ! -d "$dir" && "$dir" != "/" ]]; do dir="$(dirname "$dir")"; done
+    info="$(df -Pk "$dir" 2>/dev/null | awk 'NR==2 {print $4, $2, $6}')"
+    if [[ -z "$info" ]]; then
+      echo "  ${label}  ${target}：无法读取磁盘信息" >&2
+      fail=1
+      continue
+    fi
+    read -r avail total mount <<< "$info"
+    echo "  ${label}  ${target}"
+    echo "            挂载点 ${mount}，可用 $(human_kb "$avail") / 共 $(human_kb "$total")"
+    if (( avail < min_kb )); then
+      fail=1
+    fi
+  done
+  if command -v docker >/dev/null 2>&1; then
+    docker_root="$(docker info --format '{{.DockerRootDir}}' 2>/dev/null || true)"
+    if [[ -n "$docker_root" && -d "$docker_root" ]]; then
+      read -r avail total mount <<< "$(df -Pk "$docker_root" 2>/dev/null | awk 'NR==2 {print $4, $2, $6}')"
+      echo "  镜像目录  ${docker_root}"
+      echo "            挂载点 ${mount}，可用 $(human_kb "$avail") / 共 $(human_kb "$total")（镜像与容器层）"
+      if (( avail < min_kb )); then
+        fail=1
+      fi
+    else
+      echo "  镜像目录  Docker 未运行，跳过（拉取镜像前会占用该目录）"
+    fi
+  else
+    echo "  镜像目录  未安装 Docker，跳过"
+  fi
+  echo "  说明：这里只算程序、Docker 镜像和系统开销；每个实例的硬盘配额另算。"
+  if [[ "$fail" -eq 0 ]]; then
+    echo "  结果：可用空间足够"
+  else
+    echo "  结果：可用空间低于建议值 ${MIN_FREE_MB} MB" >&2
+  fi
+  return "$fail"
+}
+
+if [[ "$CHECK_SPACE" -eq 1 ]]; then
+  if check_space; then
+    exit 0
+  else
+    exit 1
+  fi
+fi
 
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ ! -d "$SRC_DIR/app" ]]; then
@@ -47,6 +120,11 @@ fi
 if [[ "$(id -u)" -ne 0 ]]; then
   echo "错误：请使用 root 或 sudo 运行（安装到 $PREFIX 并创建 systemd 服务）" >&2
   exit 1
+fi
+
+echo "==> 安装前检查存储空间"
+if ! check_space; then
+  echo "    可用空间低于建议值 ${MIN_FREE_MB} MB，继续安装；拉取镜像或写入实例数据时可能失败。" >&2
 fi
 
 echo "==> 1/4 检查依赖"

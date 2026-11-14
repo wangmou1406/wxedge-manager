@@ -3,6 +3,7 @@
 # 用法:
 #   curl -fsSL https://raw.githubusercontent.com/wangmou1406/wxedge-manager/main/install-online.sh | sudo bash
 #   curl -fsSL ... | sudo bash -s -- --port 9000
+#   curl -fsSL ... | sudo bash -s -- --check-space      仅检查磁盘空间
 # 可选环境变量:
 #   WXEDGE_REPO=owner/repo        默认 wangmou1406/wxedge-manager
 #   WXEDGE_REF=main               默认 main，也可填 tag / 分支

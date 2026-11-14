@@ -17,7 +17,7 @@ from docker_backend import DockerError, build_run_args
 from sim_backend import SimBackend
 from store import Store
 
-VERSION = "1.3.1"
+VERSION = "1.3.2"
 NAME_MAX = 32
 RESTART_POLICIES = ("always", "unless-stopped", "no")
 

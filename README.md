@@ -56,6 +56,22 @@ curl -fsSL https://raw.githubusercontent.com/wangmou1406/wxedge-manager/main/ins
 curl -fsSL https://raw.githubusercontent.com/wangmou1406/wxedge-manager/main/install-online.sh | sudo bash -s -- --port 9000
 ```
 
+安装前先看磁盘空间（只读检查，不安装）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/wangmou1406/wxedge-manager/main/install-online.sh | sudo bash -s -- --check-space
+```
+
+本地脚本也可以直接跑，不需要 root：
+
+```bash
+bash install.sh --check-space
+# 改阈值，单位 MB
+bash install.sh --check-space --min-free-mb 5120
+```
+
+检查安装目录、数据目录和正在运行的 Docker 镜像目录；默认阈值 2048 MB，低于阈值退出码为 1。正常安装也会打印这份报告，空间不够只警告，不阻断安装。每个实例的硬盘配额不计入这个阈值。
+
 安装器依次做这些事：
 
 - 补齐 `curl`、`tar`、`ca-certificates`；
